@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <utility>
 
 namespace cmf {
 
@@ -13,60 +14,60 @@ namespace cmf {
 
         virtual ~Value() noexcept = default;
 
-        Value(const bool value) {
+        explicit Value(const bool value) {
             *this = value;
         }
 
-        Value(const int value) {
+        explicit Value(const int value) {
             *this = value;
         }
 
-        Value(const double value) {
+        explicit Value(const double value) {
             *this = value;
         }
 
-        Value(const char *value) : _value(value) {}
+        explicit Value(const char *value) : _value(value) {}
 
-        Value(const std::string &value) : _value(value) {}
+        explicit Value(std::string value) : _value(std::move(value)) {}
 
-        const Value &operator=(const bool value) {
+        Value &operator=(const bool value) {
             _value = value ? "true" : "false";
             return *this;
         }
 
-        const Value &operator=(const int value) {
+        Value &operator=(const int value) {
             _value = std::to_string(value);
             return *this;
         }
 
-        const Value &operator=(const double value) {
+        Value &operator=(const double value) {
             _value = std::to_string(value);
             return *this;
         }
 
-        const Value &operator=(const char *value) {
+        Value &operator=(const char *value) {
             _value = value;
             return *this;
         }
 
-        const Value &operator=(const std::string &value) {
+        Value &operator=(const std::string &value) {
             _value = value;
             return *this;
         }
 
-        operator bool() {
+        explicit operator bool() {
             return _value == "true";
         }
 
-        operator int() {
+        explicit operator int() {
             return std::stoi(_value);
         }
 
-        operator double() {
+        explicit operator double() {
             return std::stof(_value);
         }
 
-        operator std::string &() {
+        explicit operator std::string &() {
             return _value;
         }
 
@@ -96,9 +97,9 @@ namespace cmf {
 
         virtual ~Ini() noexcept = default;
 
-        Ini(const std::string fileName) : _fileName(fileName) {}
+        explicit Ini(std::string fileName) : _fileName(std::move(fileName)) {}
 
-        const std::string trim(std::string str, const std::string &whitespace = " \r\n\t\v\f") {
+        static std::string trim(std::string str, const std::string &whitespace = " \r\n\t\v\f") {
             if (str.empty()) {
                 std::cerr << "loading file failed: key or value is not found." << std::endl;
                 return str;
@@ -114,12 +115,12 @@ namespace cmf {
             _fileName = fileName;
 
             std::ifstream fin(_fileName);
-            if (false == fin.is_open()) {
+            if (!fin.is_open()) {
                 std::cerr << "loading file failed: " << fileName << "is not found." << std::endl;
                 return false;
             }
-            std::string line = "";
-            std::string section = "";
+            std::string line;
+            std::string section;
             while (std::getline(fin, line)) {
                 if ("\r" == line || '#' == line[0]) {  //如果是注释就跳过
                     continue;
@@ -139,7 +140,7 @@ namespace cmf {
             return true;
         }
 
-        bool save(const std::string &fileName) {
+        [[nodiscard]] bool save(const std::string &fileName) const {
             std::ofstream ofs(fileName.c_str());
             if (ofs.fail()) {
                 std::cerr << "open file failed: " << fileName << "is not found." << std::endl;
@@ -150,12 +151,12 @@ namespace cmf {
             return true;
         }
 
-        std::string getString() const {
+        [[nodiscard]] std::string getString() const {
             std::stringstream ss;
-            for (auto it = _sections.begin(); it != _sections.end(); ++it) {
-                ss << "[" << it->first << "]" << std::endl;
-                for (auto iter = it->second.begin(); iter != it->second.end(); ++iter) {
-                    ss << iter->first << " = " << iter->second << std::endl;
+            for (const auto &_section: _sections) {
+                ss << "[" << _section.first << "]" << std::endl;
+                for (const auto &iter: _section.second) {
+                    ss << iter.first << " = " << iter.second << std::endl;
                 }
                 ss << std::endl;
             }
@@ -206,10 +207,10 @@ namespace cmf {
         }
 
         friend std::ostream &operator<<(std::ostream &os, const Ini &ini) {
-            for (auto it = ini._sections.begin(); it != ini._sections.end(); ++it) {
-                os << "[" << it->first << "]" << std::endl;
-                for (auto iter = it->second.begin(); iter != it->second.end(); ++iter) {
-                    os << iter->first << " = " << iter->second << std::endl;
+            for (const auto &_section: ini._sections) {
+                os << "[" << _section.first << "]" << std::endl;
+                for (const auto &iter: _section.second) {
+                    os << iter.first << " = " << iter.second << std::endl;
                 }
             }
             return os;
